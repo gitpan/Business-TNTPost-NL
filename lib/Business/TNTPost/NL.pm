@@ -5,7 +5,7 @@ use Business::TNTPost::NL::Data qw/:ALL/;
 use Carp;
 use List::Util qw/reduce/;
 
-our $VERSION     = '0.01';
+our $VERSION     = '0.02';
 our $ERROR       = undef;
 
 sub new {
@@ -235,7 +235,7 @@ or
 This module calculates the shipping costs for the Dutch TNT Post,
 based on country, weight and priority shipping (or not), etc.
 
-The shipping cost information is based on 'Tarieven januari 2007'.
+The shipping cost information is based on 'Tarieven Januari 2008'.
 
 It returns the shipping costs in euro or undef (which usually means
 the parcel is heavier than the maximum allowed weight; check
@@ -357,7 +357,7 @@ Pagina 8
 
 =item Brieven, drukwerken, kaarten, buspakjes
 
-Pagina 34
+Pagina 32
 
 =back
 
@@ -367,11 +367,11 @@ Pagina 34
 
 =item Internationaal Pakket Basis
 
-Pagina 35
+Pagina 33
 
 =item Internationaal Pakket Plus
 
-Pagina 36
+Pagina 34
 
 =back
 
@@ -381,7 +381,7 @@ Pagina 36
 
 =item Aangetekend incl. toeslag handtekening retour 
 
-Pagina 38
+Pagina 36
 
 =back
 

@@ -10,7 +10,7 @@ my $cost = $tpg->calculate(
                weight  => '1234',
                priority=> 1
            );
-is($cost, '10.80');
+is($cost, '9.00');
 
 $tpg  = Business::TNTPost::NL->new ();
 $cost = $tpg->calculate(
@@ -20,7 +20,7 @@ $cost = $tpg->calculate(
                register=> 1,
                machine => 1 
            );
-is($cost, '6.25');
+is($cost, '6.45');
 
 $tpg  = Business::TNTPost::NL->new ();
 $cost = $tpg->calculate(
@@ -30,7 +30,7 @@ $cost = $tpg->calculate(
                register=> 0,
                machine => 0 
            );
-is($cost, '20.47');
+is($cost, '19.32');
 
 $tpg  = Business::TNTPost::NL->new ();
 $cost = $tpg->calculate(

@@ -1,14 +1,17 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Business-TNTPost-NL
-version:      0.01
-version_from: lib/Business/TNTPost/NL.pm
-installdirs:  site
-requires:
+--- #YAML:1.0
+name:                Business-TNTPost-NL
+version:             0.02
+abstract:            Calculate Dutch (TNT Post) shipping costs
+license:             ~
+generated_by:        ExtUtils::MakeMaker version 6.36
+distribution_type:   module
+requires:     
     Carp:                          0
     List::Util:                    0
     Test::Simple:                  0.44
     YAML:                          0
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30
+meta-spec:
+    url:     http://module-build.sourceforge.net/META-spec-v1.2.html
+    version: 1.2
+author:
+    - M. Blom (blom@cpan.org)
