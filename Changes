@@ -1,5 +1,9 @@
 Revision history for Perl module Business::TNTPost::NL
 
+0.03 Jan 09 2008
+    - fixed bug in world :: register :: world
+    - fixed country codes (Greece is back in zone 4)
+
 0.02 Dec 14 2007
     - new rates, updated module
 
