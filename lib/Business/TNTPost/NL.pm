@@ -5,7 +5,7 @@ use Business::TNTPost::NL::Data qw/:ALL/;
 use Carp;
 use List::Util qw/reduce/;
 
-our $VERSION     = '0.03';
+our $VERSION     = '0.04';
 our $ERROR       = undef;
 
 sub new {

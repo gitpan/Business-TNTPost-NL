@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Business-TNTPost-NL
-version:             0.03
+version:             0.04
 abstract:            Calculate Dutch (TNT Post) shipping costs
 license:             ~
 generated_by:        ExtUtils::MakeMaker version 6.36

@@ -6,7 +6,7 @@ use vars qw($VERSION @EXPORT @EXPORT_OK %EXPORT_TAGS);
 use Carp;
 use YAML;
 
-$VERSION   = 0.03;
+$VERSION   = 0.04;
 @EXPORT    = qw();
 @EXPORT_OK = qw(zones table);
 %EXPORT_TAGS = ("ALL" => [@EXPORT_OK]);
@@ -92,7 +92,7 @@ world:
           '0,499': 5.25
           '500,2000': 11.25
         standard: 
-          '0,449': 4.20
+          '0,499': 4.20
           '500,2000': 9.10
     # Outside Europe
     world: 
