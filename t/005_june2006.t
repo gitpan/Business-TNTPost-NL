@@ -10,7 +10,7 @@ my $cost = $tpg->calculate(
                weight  => '345',
                register=> 1
            );
-is($cost, '7.50');
+is($cost, '7.70');
 
 $tpg  = Business::TNTPost::NL->new ();
 $cost = $tpg->calculate(
@@ -29,4 +29,4 @@ $cost = $tpg->calculate(
                priority=> 1,
                large   => 1 
            );
-is($cost, '6.20');
+is($cost, '6.75');

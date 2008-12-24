@@ -5,6 +5,8 @@ Changes
 Makefile.PL
 lib/Business/TNTPost/NL.pm
 lib/Business/TNTPost/NL/Data.pm
+t/000_pod.t
+t/000_pod-coverage.t
 t/001_load.t
 t/002_some_values.t
 t/003_receipts.t

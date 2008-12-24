@@ -5,196 +5,18 @@ use Business::TNTPost::NL::Data qw/:ALL/;
 use Carp;
 use List::Util qw/reduce/;
 
-our $VERSION     = '0.04';
-our $ERROR       = undef;
+our $VERSION = 0.06;
+our $ERROR   = undef;
 
-sub new {
-   my ($class, %parameters) = @_;
-   my $self = bless ({}, ref ($class) || $class);
-      $self->{_zone} = undef;
-      $self->{_weight} = undef;
-      $self->{_large} = 0;
-      $self->{_priority} = 0;
-      $self->{_tracktrace} = 0;
-      $self->{_register} = 0;
-      $self->{_receipt} = 0;
-      $self->{_machine} = 0;
-   return $self;
+use base qw/Class::Accessor::Fast/;
+
+BEGIN {
+    __PACKAGE__->mk_accessors(
+        qw/cost large machine priority receipt register tracktrace weight zone/
+    );
 }
 
-sub country {
-   my ($self, $cc) = @_;
-   
-   if($cc) {
-      my $zones = zones();
-      $self->{_zone} = defined $zones->{$cc} ? $zones->{$cc} : '5';
-   } 
-   return $self->{_zone};
-}
-
-sub weight {
-   my ($self, $weight) = @_;
-
-   $self->{_weight} = $weight if($weight);
-   return $self->{_weight};
-}
-
-sub large {
-   my ($self, $large) = @_;
-
-   $self->{_large} = $large if($large);
-   return $self->{_large};
-}
-
-sub priority {
-   my ($self, $priority) = @_;
-
-   $self->{_priority} = 1 if($priority);
-   return $self->{_priority};
-}
-
-sub tracktrace {
-   my ($self, $tracktrace) = @_;
-
-   $self->{_tracktrace} = $tracktrace if($tracktrace);
-   return $self->{_tracktrace};
-}
-
-sub register {
-   my ($self, $register) = @_;
-
-   $self->{_register} = $register if($register);
-   return $self->{_register};
-}
-
-sub receipt {
-   my ($self, $receipt) = @_;
-
-   $self->{_receipt} = $receipt if($receipt);
-   return $self->{_receipt};
-}
-
-sub machine {
-   my ($self, $machine) = @_;
-
-   $self->{_machine} = $machine if($machine);
-   return $self->{_machine};
-
-}
-
-sub calculate {
-   my ($self, %opt) = @_;
-   $self->country($opt{country}) if($opt{country});
-   $self->weight($opt{weight}) if($opt{weight});
-   $self->large(1) if($opt{large});
-   $self->priority(1) if($opt{priority});
-   $self->tracktrace(1) if($opt{tracktrace});
-   $self->register(1) if($opt{register});
-   $self->receipt(1) if($opt{receipt});
-   $self->machine(1) if($opt{machine});
-   $self->{_cost} = undef;
-
-   croak "Not enough information!" 
-      unless(defined $self->_zone && $self->weight);
-
-   # > 2000 grams automatically means 'tracktrace'
-   $self->tracktrace(1) if($self->weight > 2000);
-
-   # Zone 1..4 (with tracktrace) automagically means 'priority'
-   $self->priority(1) if($self->country < 5 && $self->tracktrace);
-
-   # Registered (aangetekend) automagically means 'priority'
-   $self->priority(1) if($self->register);
-
-   # Fetch the interesting table 
-   my $ref = _pointer_to_element(table(), $self->_generate_path);
-   my $table = $$ref;
-
-   my $highest = 0;
-   foreach my $key (keys %{$table}) {
-      my ($lo, $hi) = split ',', $key;
-      $highest = $hi if($hi > $highest);
-      if($self->{_weight} >= $lo && $self->{_weight} <= $hi) {
-         $self->{_cost} = $table->{$key};
-         last;
-      }
-   }
-   $ERROR = $self->{_weight} - $highest. " grams too heavy (max: $highest gr.)"
-      if($highest < $self->{_weight});
-
-   ### Receipt ("Bericht van ontvangst")
-   if($self->register && $self->receipt) {
-      if($self->_zone) {                # World
-         $self->{_cost} += 1.40;
-      } else {                          # Netherlands
-         $self->{_cost} += 1.15 unless($self->machine);
-      }
-   }
-
-   return ($self->{_cost}) ? sprintf("%0.2f", $self->{_cost}) : undef;
-}
-
-sub _zone {
-   my $self = shift;
-   return $self->{_zone};
-}
-
-sub _generate_path {
-   my $self = shift;
-
-   my @p;
-
-   if($self->_zone) { 
-      push @p, 'world';                         # world
-      if($self->register) {
-         push @p, 'register',                   # w/register
-              ($self->_zone < 5)                # w/register/(europe|world)
-                     ? 'europe'
-                     : 'world';
-      } elsif($self->tracktrace) {
-         push @p, 'plus', 'zone', $self->_zone; # w/plus/zone/[1..5]
-         push @p, ($self->priority == 1)        # w/plus/zone/5/(prio|eco)
-                  ? 'priority' 
-                  : 'economy' if($self->_zone == 5);
-      } else {
-         push @p, 
-            'basic',                            # w/basic
-            ($self->_zone < 5)                  # w/basic/(europe|world)
-                   ? 'europe'
-                   : 'world',
-            ($self->large == 1)                 # w/basic/(e|w)/(large|small)
-                   ? 'large'
-                   : 'small';
-         if($self->_zone == 5 && !$self->large) {
-            push @p, 'priority';                # Force priority for small
-                                                # out-of-europe packages
-         } else {
-            push @p, 
-               ($self->priority == 1)           # w/basic/(e|w)/(l|s)/(p|s)
-                      ? 'priority'
-                      : 'standard';
-         }
-      }
-   } else {
-      push @p, 'netherlands';                   # netherlands
-      if($self->register) {
-         push @p, 'register';                   #
-      } else {
-         push @p, ($self->large == 1)           # n/(large|small)
-                   ? 'large'
-                   : 'small';
-      } 
-      push @p, ($self->machine == 1) ? 'machine' : 'stamp';
-   }
-   return @p;
-}
-
-sub _pointer_to_element {       # Thanks 'merlyn'!
-   require List::Util;
-   return List::Util::reduce(sub { \($$a->{$b}) }, \shift, @_);
-}
-
-#################### main pod documentation begin ###################
+=pod
 
 =head1 NAME
 
@@ -235,7 +57,7 @@ or
 This module calculates the shipping costs for the Dutch TNT Post,
 based on country, weight and priority shipping (or not), etc.
 
-The shipping cost information is based on 'Tarieven Januari 2008'.
+The shipping cost information is based on 'Tarieven Januari 2009'.
 
 It returns the shipping costs in euro or undef (which usually means
 the parcel is heavier than the maximum allowed weight; check
@@ -249,6 +71,16 @@ The following methods can be used
 
 C<new> creates a new C<Business::TNTPost::NL> object. No more, no less.
 
+=cut
+
+sub new {
+    my ( $class, %parameters ) = @_;
+    my $self = bless( {}, ref($class) || $class );
+    return $self;
+}
+
+=pod
+
 =head3 country
 
 Sets the country (ISO 3166, 2-letter country code) and returns the
@@ -256,46 +88,24 @@ zone number used by TNT Post (or 0 for The Netherlands (NL)).
 
 This value is mandatory for the calculations.
 
-=head3 weight
+Note that the reserved IC has been used for the Canary Islands. This
+has not been adopted by ISO 3166 yet. The Channel Islands are completely
+ignored due to a lack of a code.
 
-Sets and/or returns the weight of the parcel in question in grams.
+=cut
 
-This value is mandatory for the calculations.
+sub country {
+    my ( $self, $cc ) = @_;
 
-=head3 large
+    if ($cc) {
+        my $zones = Business::TNTPost::NL::Data::zones();
+        $self->zone( defined $zones->{$cc} ? $zones->{$cc} : '4' );
+    }
 
-Sets and/or returns the value of this option. Defaults to 0 (meaning:
-the package will fit through the mail slot).
+    return $self->zone;
+}
 
-=head3 priority
-
-Sets and/or returns the value of this option. Defaults to 0 (meaning:
-standard class (or economy class, where standard is not available)).
-
-=head3 tracktrace
-
-Sets and/or returns the value of this options. Defaults to 0 (meaning:
-no track & trace feature wanted). When a parcel destined for abroad
-weighs over 2 kilograms, default is 1, while over 2kg it's not even
-optional anymore.
-
-=head3 register
-
-Sets and/or returns the value of this options. Defaults to 0 (meaning:
-parcel is not registered (Dutch: aangetekend)).
-
-=head3 receipt
-
-Sets and/or returns the value of this options. Defaults to 0 (meaning:
-receipt not requested for registered parcels).
-
-=head3 machine
-
-Sets and/or returns the value of this options. Defaults to 0 (meaning:
-stamps will be used, not the machine (Dutch: frankeermachine)).
-
-Only interesting for destinies within NL. Note that "Pakketzegel AVP"
-and "Easystamp" should also use this option.
+=pod
 
 =head3 calculate
 
@@ -308,6 +118,188 @@ default value that will be used unless told otherwise.
 
 Returns the shipping costs in euro, or undef (see $Business::TNTPost::NL::ERROR
 in that case).
+
+=cut
+
+sub calculate {
+    my ( $self, %opt ) = @_;
+
+    # Set the options
+    for (
+        qw/country weight large priority tracktrace
+        register receipt machine/
+      )
+    {
+        $self->$_( $opt{$_} ) if ( defined $opt{$_} );
+    }
+
+    croak "Not enough information!"
+      unless ( defined $self->zone && defined $self->weight );
+
+    # > 2000 grams automatically means 'tracktrace'
+    $self->tracktrace(1) if ( $self->weight > 2000 );
+
+    # Zone 1..4 (with tracktrace) automagically means 'priority'
+    $self->priority(1) if ( $self->tracktrace );
+
+    # Zone 3,4 + small automagically means 'priority'
+    $self->priority(1) if( $self->zone > 2 && !$self->large );
+
+    # Registered (aangetekend) automagically means 'priority'
+    #$self->priority(1) if ( $self->register );
+
+    # Fetch the interesting table
+    my $ref = _pointer_to_element( table(), $self->_generate_path );
+    my $table = $$ref;
+
+    my $highest = 0;
+    foreach my $key ( keys %{$table} ) {
+        my ( $lo, $hi ) = split ',', $key;
+        $highest = $hi if ( $hi > $highest );
+        if ( $self->weight >= $lo && $self->weight <= $hi ) {
+            $self->cost( $table->{$key} );
+            last;
+        }
+    }
+    $ERROR = $self->weight - $highest . " grams too heavy (max: $highest gr.)"
+      if ( $highest < $self->weight );
+
+    ### Receipt ("Bericht van ontvangst")
+    if ( $self->register && $self->receipt ) {
+        if ( $self->zone ) {    # World
+            $self->cost( $self->cost + 1.40 );
+        }
+        else {                  # Netherlands
+            $self->cost( $self->cost + 1.15 );
+        }
+    }
+
+    return ( $self->cost ) ? sprintf( "%0.2f", $self->cost ) : undef;
+}
+
+=pod
+
+=head3 _generate_path
+
+Internal method to create the path to walk through the pricing table.
+Don't call this, use L<calculate> instead.
+
+=cut
+
+sub _generate_path {
+    my $self = shift;
+
+    my @p;
+
+    if ( $self->zone ) {
+        push @p, 'world';    # world
+        if ( $self->register ) {
+            push @p, 'register',    # w/register
+              ( $self->zone < 3 )   # w/register/(europe|world)
+              ? 'europe'
+              : 'world',
+              ( $self->machine )   # w/register/(e|w)/(stamp|machine)
+                  ? 'machine'
+                  : 'stamp';
+        }
+        elsif ( $self->tracktrace ) {
+            push @p, 'plus', 'zone', $self->zone;    # w/plus/zone/[1..4]
+        }
+        else {
+            push @p, 'basic',           # w/basic
+              ( $self->zone < 3 )       # w/basic/(europe|world)
+              ? 'europe'
+              : 'world',
+              ( $self->large )		# w/basic/(e|w)/(large|small)
+              ? 'large'
+              : 'small';
+
+	    if( !$self->large ) {
+		# w/basic/(e|w)/small/(machine|stamp)
+                push @p, ( $self->machine ) ? 'machine' : 'stamp';
+            }
+
+            push @p,
+              ( $self->priority )       # w/basic/(e|w)/(l|s)/(m|s)?/(p|s)
+              ? 'priority'
+              : 'standard';
+        }
+    }
+    else {
+        push @p, 'netherlands';                 # netherlands
+        if ( $self->register ) {
+            push @p, 'register';		# n/register
+        }
+        else {
+            push @p, ( $self->large )           # n/(large|small)
+              ? 'large'
+              : 'small';
+        }
+        ( push @p, ( $self->machine ) ? 'machine' : 'stamp' ) 
+            unless $self->large;;
+    }
+#print (join " :: ", @p), "\n";
+    return @p;
+}
+
+=pod
+
+=head3 _pointer_to_element
+
+Blame L<merlyn> for this internal method. It's using L<List::Util>
+to "grep" the information needed.
+
+Don't call this, use L<calculate> instead.
+
+=cut
+
+sub _pointer_to_element {                       # Thanks 'merlyn'!
+    require List::Util;
+    return List::Util::reduce( sub { \( $$a->{$b} ) }, \shift, @_ );
+}
+
+=pod
+
+=head3 weight
+
+Sets and/or returns the weight of the parcel in question in grams.
+
+This value is mandatory for the calculations.
+
+=head3 large
+
+Sets and/or returns the value of this option. Defaults to undef (meaning:
+the package will fit through the mail slot).
+
+=head3 priority
+
+Sets and/or returns the value of this option. Defaults to undef (meaning:
+standard class (or economy class, where standard is not available)).
+
+=head3 tracktrace
+
+Sets and/or returns the value of this options. Defaults to undef (meaning:
+no track & trace feature wanted). When a parcel destined for abroad
+weighs over 2 kilograms, default is 1, while over 2kg it's not even
+optional anymore.
+
+=head3 register
+
+Sets and/or returns the value of this options. Defaults to undef (meaning:
+parcel is not registered (Dutch: aangetekend)).
+
+=head3 receipt
+
+Sets and/or returns the value of this options. Defaults to undef (meaning:
+receipt not requested for registered parcels).
+
+=head3 machine
+
+Sets and/or returns the value of this options. Defaults to undef (meaning:
+stamps will be used, not the machine (Dutch: frankeermachine)).
+
+Only interesting for destinies within NL. Note that "Pakketzegel AVP"
+and "Easystamp" should also use this option.
 
 =head1 BUGS
 
@@ -329,13 +321,13 @@ TNT Post booklet (sorry, all in Dutch)):
 
 =over 4
 
-=item Brieven, drukwerken, kaarten, buspakjes
+=item Brieven, Direct Mail, kaarten, buspakjes en briefkaarten
 
-Pagina 6
+Pagina 19
 
 =item Aangetekend
 
-Pagina 7, incl. toeslag handtekening retour
+Pagina 25, incl. toeslag handtekening retour
 
 =back
 
@@ -345,7 +337,7 @@ Pagina 7, incl. toeslag handtekening retour
 
 =item Basis Pakket
 
-Pagina 8
+Pagina 26
 
 =back
 
@@ -355,9 +347,9 @@ Pagina 8
 
 =over 4
 
-=item Brieven, drukwerken, kaarten, buspakjes
+=item Brieven, Direct Mail, kaarten, buspakjes
 
-Pagina 32
+Pagina 31
 
 =back
 
@@ -367,11 +359,11 @@ Pagina 32
 
 =item Internationaal Pakket Basis
 
-Pagina 33
+Pagina 35
 
 =item Internationaal Pakket Plus
 
-Pagina 34
+Pagina 36
 
 =back
 
@@ -381,7 +373,7 @@ Pagina 34
 
 =item Aangetekend incl. toeslag handtekening retour 
 
-Pagina 36
+Pagina 32
 
 =back
 
@@ -389,7 +381,7 @@ These should be the most commom methods of shipment.
 
 =head1 AUTHOR
 
-M. Blom, 
+Menno Blom, 
 E<lt>blom@cpan.orgE<gt>, 
 L<http://menno.b10m.net/perl/>
 
@@ -404,10 +396,9 @@ LICENSE file included with this module.
 =head1 SEE ALSO
 
 L<http://www.tntpost.nl/>, 
+L<http://www.tntpost.nl/zakelijk/images/Tarievenboekje_tcm42-411440.pdf>,
 L<http://www.iso.org/iso/en/prods-services/iso3166ma/index.html>
 
 =cut
-
-#################### main pod documentation end ###################
 
 1;
