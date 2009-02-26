@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Business-TNTPost-NL
-version:            0.08
+version:            0.1
 abstract:           Calculate Dutch (TNT Post) shipping costs
 author:
     - M. Blom (blom@cpan.org)
